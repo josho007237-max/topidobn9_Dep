@@ -153,9 +153,14 @@ Endpoints สำคัญ:
 
 - `POST /webhook/:botId` – รับข้อความจาก Telegram สำหรับแต่ละบอท
 - `POST /webhook` – ใช้ค่า `TELEGRAM_DEFAULT_BOT_ID` เมื่อไม่ส่งพารามิเตอร์
+ codex/fix-and-complete-missing-components-for-deployment-ak468j
 - `GET /health` – รายงานสถานะระบบรวม (บอท, Supabase, OpenAI, Local store)
 - `GET /api/bots` – รายชื่อบอท
 - `GET /api/system/status` – ตรวจสอบสถานะรวม Supabase/OpenAI/Webhook
+=======
+- `GET /health` – รายงานสถานะทั้งหมดของบอท
+- `GET /api/bots` – รายชื่อบอท
+ main
 - `GET /api/bots/:botId/config` – คำสั่ง + Quick Replies + Settings
 - `POST /api/bots/:botId/commands` – เพิ่ม/แก้ไข/ลบคำสั่ง
 - `POST /api/bots/:botId/quick-replies` – จัดการ Quick Replies
@@ -173,9 +178,12 @@ npm run dev
 
 แดชบอร์ดจะรันที่ `http://localhost:5173` พร้อม Tailwind UI และเรียก API ผ่าน `VITE_API_BASE`
 
+ codex/fix-and-complete-missing-components-for-deployment-ak468j
 - โค้ด Frontend เป็น React + **TypeScript** (Vite) พร้อม utility `src/api.ts` ที่ช่วยจัดการ fetch/typing
 - UI ถูกออกแบบให้จัดการหลายบอท, คำสั่ง, Quick Reply และการตั้งค่า AI ได้ครบจบในหน้าเดียว
 
+=======
+ main
 ## 🐳 Deploy ด้วย Docker Compose
 
 ```bash
