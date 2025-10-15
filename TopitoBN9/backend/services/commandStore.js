@@ -1,242 +1,467 @@
 const fs = require('fs/promises');
 const path = require('path');
 const { randomUUID } = require('crypto');
+const { z } = require('zod');
 
-const DATA_DIR = path.join(__dirname, '..', 'data');
-const DATA_FILE = path.join(DATA_DIR, 'bot-config.json');
+const { supabase, isSupabaseEnabled } = require('./supabaseClient');
 
-const createDefaultData = () => ({
-  defaultResponse: 'ขอบคุณที่ติดต่อ Topito BN9! ทีมงานจะรีบตอบกลับให้เร็วที่สุด ✨',
-  commands: [
-    {
-      id: randomUUID(),
-      command: '/start',
-      description: 'คำแนะนำการใช้งานเบื้องต้น',
-      response:
-        'สวัสดีค่ะ!\n\nนี่คือ Topito BN9 Assistant พร้อมช่วยตอบคำถามและพาคุณไปยัง Mini App ต่าง ๆ ได้ทันที 🙂',
-      buttons: [
-        {
-          id: randomUUID(),
-          label: 'ถามคำถาม',
-          type: 'command',
-          value: '/help',
-        },
-        {
-          id: randomUUID(),
-          label: 'เปิด Mini App',
-          type: 'web_app',
-        },
-      ],
-    },
-    {
-      id: randomUUID(),
-      command: '/help',
-      description: 'รายการหัวข้อที่สามารถสอบถามได้',
-      response:
-        'คุณสามารถถามคำถามเกี่ยวกับการสั่งซื้อ การจัดส่ง หรือพูดคุยกับเจ้าหน้าที่ได้เลยค่ะ 🛎️',
-      buttons: [
-        {
-          id: randomUUID(),
-          label: 'เช็คคำสั่งซื้อ',
-          type: 'command',
-          value: '/track',
-        },
-        {
-          id: randomUUID(),
-          label: 'ติดต่อทีมงาน',
-          type: 'command',
-          value: '/support',
-        },
-      ],
-    },
-  ],
-  quickReplies: [
-    {
-      id: randomUUID(),
-      title: 'เวลาทำการ',
-      keyword: 'เวลา',
-      response: 'ทีมงานพร้อมให้บริการทุกวัน 09:00 - 18:00 น. ค่ะ',
-    },
-    {
-      id: randomUUID(),
-      title: 'สถานะจัดส่ง',
-      keyword: 'ส่งของ',
-      response: 'อยากตรวจสอบสถานะจัดส่งพิมพ์ /track และกรอกหมายเลขคำสั่งซื้อได้เลยนะคะ',
-    },
-  ],
+const DATA_FILE = path.join(__dirname, '../data/bot-config.json');
+
+const commandSchema = z.object({
+  id: z.string().uuid().optional(),
+  command: z.string().min(1, 'ต้องระบุชื่อคำสั่ง'),
+  description: z.string().optional().default(''),
+  response: z.string().min(1, 'ต้องระบุข้อความตอบกลับ'),
+  buttons: z
+    .array(
+      z.object({
+        id: z.string().optional(),
+        label: z.string().min(1),
+        type: z.enum(['command', 'url', 'web_app']).default('command'),
+        value: z.string().optional().default(''),
+      })
+    )
+    .optional()
+    .default([]),
 });
 
-async function ensureStoreReady() {
-  await fs.mkdir(DATA_DIR, { recursive: true });
+const quickReplySchema = z.object({
+  id: z.string().uuid().optional(),
+  title: z.string().min(1, 'ต้องระบุชื่อหัวข้อ'),
+  keyword: z.string().min(1, 'ต้องระบุคำค้นหา'),
+  response: z.string().min(1, 'ต้องระบุข้อความตอบกลับ'),
+});
+
+const settingsSchema = z.object({
+  defaultResponse: z.string().optional().default(''),
+  aiPersona: z.string().optional().default(''),
+  aiEnabled: z.boolean().optional().default(false),
+  aiModel: z.string().optional().default(process.env.OPENAI_DEFAULT_MODEL || 'gpt-4o-mini'),
+  aiTemperature: z.number().optional().default(0.2),
+  autoKeyboard: z.boolean().optional().default(false),
+  autoCommands: z.boolean().optional().default(false),
+  miniAppUrl: z.string().optional().default(''),
+  webhookUrl: z.string().optional().default(''),
+});
+
+const DEFAULT_STATE = {
+  bots: {},
+};
+
+const COMMAND_TABLE = 'bot_commands';
+const QUICK_REPLY_TABLE = 'bot_quick_replies';
+const SETTINGS_TABLE = 'bot_settings';
+
+async function ensureStoreReady(botId) {
+  if (isSupabaseEnabled) {
+    return;
+  }
+
   try {
     await fs.access(DATA_FILE);
   } catch (error) {
-    const defaults = createDefaultData();
-    await fs.writeFile(DATA_FILE, JSON.stringify(defaults, null, 2), 'utf-8');
+    await fs.mkdir(path.dirname(DATA_FILE), { recursive: true });
+    await fs.writeFile(DATA_FILE, JSON.stringify(DEFAULT_STATE, null, 2), 'utf8');
+  }
+
+  if (!botId) return;
+
+  const state = await readLocalState();
+  if (!state.bots[botId]) {
+    state.bots[botId] = createEmptyBot(botId);
+    await writeLocalState(state);
   }
 }
 
-async function readData() {
-  const raw = await fs.readFile(DATA_FILE, 'utf-8');
-  return JSON.parse(raw);
-}
-
-async function writeData(data) {
-  await fs.writeFile(DATA_FILE, JSON.stringify(data, null, 2), 'utf-8');
-}
-
-const normaliseCommand = (command = '') => {
-  const trimmed = command.trim();
-  if (!trimmed) return '';
-  return trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
-};
-
-const sanitiseButtons = (buttons = []) =>
-  buttons
-    .filter((button) => button && button.label)
-    .map((button) => ({
-      id: button.id || randomUUID(),
-      label: button.label.trim(),
-      type: button.type || 'command',
-      value: button.value ? button.value.trim() : undefined,
-    }));
-
-async function getConfig() {
-  await ensureStoreReady();
-  return readData();
-}
-
-async function addCommand(payload) {
-  const data = await getConfig();
-  const commandText = normaliseCommand(payload.command || '');
-  if (!commandText) {
-    const error = new Error('จำเป็นต้องระบุชื่อคำสั่ง (command)');
-    error.status = 400;
-    throw error;
-  }
-  if (data.commands.some((item) => item.command.toLowerCase() === commandText.toLowerCase())) {
-    const error = new Error('มีคำสั่งนี้อยู่แล้ว');
-    error.status = 409;
-    throw error;
-  }
-  const command = {
-    id: randomUUID(),
-    command: commandText,
-    description: payload.description?.trim() || '',
-    response: payload.response?.trim() || '',
-    buttons: sanitiseButtons(payload.buttons),
+function createEmptyBot(botId) {
+  return {
+    id: botId,
+    commands: [],
+    quickReplies: [],
+    settings: settingsSchema.parse({}),
+    updatedAt: new Date().toISOString(),
   };
-  data.commands.push(command);
-  await writeData(data);
-  return command;
 }
 
-async function updateCommand(id, payload) {
-  const data = await getConfig();
-  const index = data.commands.findIndex((item) => item.id === id);
-  if (index === -1) {
-    const error = new Error('ไม่พบคำสั่งที่ต้องการแก้ไข');
-    error.status = 404;
-    throw error;
+async function readLocalState() {
+  try {
+    const raw = await fs.readFile(DATA_FILE, 'utf8');
+    const parsed = JSON.parse(raw);
+    return {
+      bots: parsed.bots || {},
+    };
+  } catch (error) {
+    return { bots: {} };
   }
-  const commandText = payload.command ? normaliseCommand(payload.command) : data.commands[index].command;
-  if (
-    commandText &&
-    data.commands.some((item, i) => i !== index && item.command.toLowerCase() === commandText.toLowerCase())
-  ) {
-    const error = new Error('มีคำสั่งนี้อยู่แล้ว');
-    error.status = 409;
-    throw error;
-  }
-  const current = data.commands[index];
-  data.commands[index] = {
-    ...current,
-    command: commandText || current.command,
-    description: payload.description !== undefined ? payload.description.trim() : current.description,
-    response: payload.response !== undefined ? payload.response.trim() : current.response,
-    buttons: payload.buttons ? sanitiseButtons(payload.buttons) : current.buttons,
+}
+
+async function writeLocalState(state) {
+  await fs.writeFile(DATA_FILE, JSON.stringify(state, null, 2), 'utf8');
+}
+
+function serialiseCommand(record) {
+  if (!record) return null;
+  return {
+    id: record.id,
+    command: record.command,
+    description: record.description || '',
+    response: record.response,
+    buttons: Array.isArray(record.buttons) ? record.buttons : [],
+    createdAt: record.created_at || record.createdAt,
+    updatedAt: record.updated_at || record.updatedAt,
   };
-  await writeData(data);
-  return data.commands[index];
 }
 
-async function removeCommand(id) {
-  const data = await getConfig();
-  const index = data.commands.findIndex((item) => item.id === id);
-  if (index === -1) {
-    const error = new Error('ไม่พบคำสั่งที่ต้องการลบ');
-    error.status = 404;
-    throw error;
-  }
-  data.commands.splice(index, 1);
-  await writeData(data);
-}
-
-async function addQuickReply(payload) {
-  const data = await getConfig();
-  const keyword = payload.keyword?.trim();
-  if (!keyword) {
-    const error = new Error('จำเป็นต้องระบุคีย์เวิร์ดสำหรับ Quick Reply');
-    error.status = 400;
-    throw error;
-  }
-  const quickReply = {
-    id: randomUUID(),
-    title: payload.title?.trim() || keyword,
-    keyword,
-    response: payload.response?.trim() || '',
+function serialiseQuickReply(record) {
+  if (!record) return null;
+  return {
+    id: record.id,
+    title: record.title,
+    keyword: record.keyword,
+    response: record.response,
+    createdAt: record.created_at || record.createdAt,
+    updatedAt: record.updated_at || record.updatedAt,
   };
-  data.quickReplies.push(quickReply);
-  await writeData(data);
-  return quickReply;
 }
 
-async function updateQuickReply(id, payload) {
-  const data = await getConfig();
-  const index = data.quickReplies.findIndex((item) => item.id === id);
-  if (index === -1) {
-    const error = new Error('ไม่พบ Quick Reply ที่ต้องการแก้ไข');
-    error.status = 404;
-    throw error;
-  }
-  const current = data.quickReplies[index];
-  const keyword = payload.keyword ? payload.keyword.trim() : current.keyword;
-  data.quickReplies[index] = {
-    ...current,
-    title: payload.title !== undefined ? payload.title.trim() : current.title,
-    keyword,
-    response: payload.response !== undefined ? payload.response.trim() : current.response,
+function serialiseSettings(record) {
+  const mapped = {
+    defaultResponse:
+      record?.defaultResponse !== undefined
+        ? record.defaultResponse
+        : record?.default_response ?? undefined,
+    aiPersona:
+      record?.aiPersona !== undefined ? record.aiPersona : record?.ai_persona ?? undefined,
+    aiEnabled:
+      record?.aiEnabled !== undefined ? record.aiEnabled : record?.ai_enabled ?? undefined,
+    aiModel:
+      record?.aiModel !== undefined ? record.aiModel : record?.ai_model ?? undefined,
+    aiTemperature:
+      record?.aiTemperature !== undefined
+        ? Number(record.aiTemperature)
+        : record?.ai_temperature ?? undefined,
+    autoKeyboard:
+      record?.autoKeyboard !== undefined
+        ? record.autoKeyboard
+        : record?.auto_keyboard ?? undefined,
+    autoCommands:
+      record?.autoCommands !== undefined
+        ? record.autoCommands
+        : record?.auto_commands ?? undefined,
+    miniAppUrl:
+      record?.miniAppUrl !== undefined
+        ? record.miniAppUrl
+        : record?.miniapp_url ?? undefined,
+    webhookUrl:
+      record?.webhookUrl !== undefined
+        ? record.webhookUrl
+        : record?.webhook_url ?? undefined,
   };
-  await writeData(data);
-  return data.quickReplies[index];
+  const base = settingsSchema.parse(mapped || {});
+  return {
+    defaultResponse: base.defaultResponse,
+    aiPersona: base.aiPersona,
+    aiEnabled: base.aiEnabled,
+    aiModel: base.aiModel,
+    aiTemperature: base.aiTemperature,
+    autoKeyboard: base.autoKeyboard,
+    autoCommands: base.autoCommands,
+    miniAppUrl: base.miniAppUrl,
+    webhookUrl: base.webhookUrl,
+  };
 }
 
-async function removeQuickReply(id) {
-  const data = await getConfig();
-  const index = data.quickReplies.findIndex((item) => item.id === id);
-  if (index === -1) {
-    const error = new Error('ไม่พบ Quick Reply ที่ต้องการลบ');
-    error.status = 404;
-    throw error;
+async function getConfig(botId) {
+  if (!botId) {
+    throw new Error('ต้องระบุรหัสบอท');
   }
-  data.quickReplies.splice(index, 1);
-  await writeData(data);
+
+  if (isSupabaseEnabled) {
+    const [commandRes, quickReplyRes, settingsRes] = await Promise.all([
+      supabase
+        .from(COMMAND_TABLE)
+        .select('*')
+        .eq('bot_id', botId)
+        .order('command', { ascending: true }),
+      supabase
+        .from(QUICK_REPLY_TABLE)
+        .select('*')
+        .eq('bot_id', botId)
+        .order('title', { ascending: true }),
+      supabase
+        .from(SETTINGS_TABLE)
+        .select('*')
+        .eq('bot_id', botId)
+        .maybeSingle(),
+    ]);
+
+    if (commandRes.error) throw commandRes.error;
+    if (quickReplyRes.error) throw quickReplyRes.error;
+    if (settingsRes.error) throw settingsRes.error;
+
+    return {
+      commands: (commandRes.data || []).map(serialiseCommand),
+      quickReplies: (quickReplyRes.data || []).map(serialiseQuickReply),
+      settings: serialiseSettings(settingsRes.data),
+    };
+  }
+
+  await ensureStoreReady(botId);
+  const state = await readLocalState();
+  const bot = state.bots[botId] || createEmptyBot(botId);
+  return {
+    commands: bot.commands.map(serialiseCommand),
+    quickReplies: bot.quickReplies.map(serialiseQuickReply),
+    settings: serialiseSettings(bot.settings),
+  };
 }
 
-async function setDefaultResponse(text) {
-  const data = await getConfig();
-  data.defaultResponse = text?.trim() || '';
-  await writeData(data);
+async function saveCommand(botId, payload) {
+  const parsed = commandSchema.parse(payload);
+  const now = new Date().toISOString();
+
+  if (isSupabaseEnabled) {
+    const row = {
+      id: parsed.id || randomUUID(),
+      bot_id: botId,
+      command: parsed.command,
+      description: parsed.description,
+      response: parsed.response,
+      buttons: parsed.buttons,
+      updated_at: now,
+    };
+    if (!parsed.id) {
+      row.created_at = now;
+      const { data, error } = await supabase
+        .from(COMMAND_TABLE)
+        .insert(row)
+        .select()
+        .single();
+      if (error) throw error;
+      return serialiseCommand(data);
+    }
+    const { data, error } = await supabase
+      .from(COMMAND_TABLE)
+      .update(row)
+      .eq('id', parsed.id)
+      .eq('bot_id', botId)
+      .select()
+      .single();
+    if (error) throw error;
+    return serialiseCommand(data);
+  }
+
+  await ensureStoreReady(botId);
+  const state = await readLocalState();
+  const bot = state.bots[botId] || createEmptyBot(botId);
+  let command;
+  if (parsed.id) {
+    bot.commands = bot.commands.map((item) => {
+      if (item.id === parsed.id) {
+        command = {
+          ...item,
+          ...parsed,
+          updatedAt: now,
+        };
+        return command;
+      }
+      return item;
+    });
+  } else {
+    command = {
+      ...parsed,
+      id: randomUUID(),
+      createdAt: now,
+      updatedAt: now,
+    };
+    bot.commands.push(command);
+  }
+
+  bot.updatedAt = now;
+  state.bots[botId] = bot;
+  await writeLocalState(state);
+  return serialiseCommand(command);
+}
+
+async function deleteCommand(botId, commandId) {
+  if (isSupabaseEnabled) {
+    const { error } = await supabase
+      .from(COMMAND_TABLE)
+      .delete()
+      .eq('id', commandId)
+      .eq('bot_id', botId);
+    if (error) throw error;
+    return;
+  }
+
+  await ensureStoreReady(botId);
+  const state = await readLocalState();
+  const bot = state.bots[botId] || createEmptyBot(botId);
+  bot.commands = bot.commands.filter((command) => command.id !== commandId);
+  bot.updatedAt = new Date().toISOString();
+  state.bots[botId] = bot;
+  await writeLocalState(state);
+}
+
+async function saveQuickReply(botId, payload) {
+  const parsed = quickReplySchema.parse(payload);
+  const now = new Date().toISOString();
+
+  if (isSupabaseEnabled) {
+    const row = {
+      id: parsed.id || randomUUID(),
+      bot_id: botId,
+      title: parsed.title,
+      keyword: parsed.keyword,
+      response: parsed.response,
+      updated_at: now,
+    };
+
+    if (!parsed.id) {
+      row.created_at = now;
+      const { data, error } = await supabase
+        .from(QUICK_REPLY_TABLE)
+        .insert(row)
+        .select()
+        .single();
+      if (error) throw error;
+      return serialiseQuickReply(data);
+    }
+
+    const { data, error } = await supabase
+      .from(QUICK_REPLY_TABLE)
+      .update(row)
+      .eq('id', parsed.id)
+      .eq('bot_id', botId)
+      .select()
+      .single();
+    if (error) throw error;
+    return serialiseQuickReply(data);
+  }
+
+  await ensureStoreReady(botId);
+  const state = await readLocalState();
+  const bot = state.bots[botId] || createEmptyBot(botId);
+  let quickReply;
+  if (parsed.id) {
+    bot.quickReplies = bot.quickReplies.map((item) => {
+      if (item.id === parsed.id) {
+        quickReply = {
+          ...item,
+          ...parsed,
+          updatedAt: now,
+        };
+        return quickReply;
+      }
+      return item;
+    });
+  } else {
+    quickReply = {
+      ...parsed,
+      id: randomUUID(),
+      createdAt: now,
+      updatedAt: now,
+    };
+    bot.quickReplies.push(quickReply);
+  }
+
+  bot.updatedAt = now;
+  state.bots[botId] = bot;
+  await writeLocalState(state);
+  return serialiseQuickReply(quickReply);
+}
+
+async function deleteQuickReply(botId, quickReplyId) {
+  if (isSupabaseEnabled) {
+    const { error } = await supabase
+      .from(QUICK_REPLY_TABLE)
+      .delete()
+      .eq('id', quickReplyId)
+      .eq('bot_id', botId);
+    if (error) throw error;
+    return;
+  }
+
+  await ensureStoreReady(botId);
+  const state = await readLocalState();
+  const bot = state.bots[botId] || createEmptyBot(botId);
+  bot.quickReplies = bot.quickReplies.filter((item) => item.id !== quickReplyId);
+  bot.updatedAt = new Date().toISOString();
+  state.bots[botId] = bot;
+  await writeLocalState(state);
+}
+
+async function updateSettings(botId, updates) {
+  const parsed = settingsSchema.parse(updates || {});
+  const now = new Date().toISOString();
+
+  if (isSupabaseEnabled) {
+    const payload = {
+      bot_id: botId,
+      default_response: parsed.defaultResponse,
+      ai_persona: parsed.aiPersona,
+      ai_enabled: parsed.aiEnabled,
+      ai_model: parsed.aiModel,
+      ai_temperature: parsed.aiTemperature,
+      auto_keyboard: parsed.autoKeyboard,
+      auto_commands: parsed.autoCommands,
+      miniapp_url: parsed.miniAppUrl,
+      webhook_url: parsed.webhookUrl,
+      updated_at: now,
+    };
+
+    const { data, error } = await supabase
+      .from(SETTINGS_TABLE)
+      .upsert(payload, { onConflict: 'bot_id' })
+      .select()
+      .single();
+    if (error) throw error;
+    return serialiseSettings(data);
+  }
+
+  await ensureStoreReady(botId);
+  const state = await readLocalState();
+  const bot = state.bots[botId] || createEmptyBot(botId);
+  bot.settings = {
+    ...serialiseSettings(bot.settings),
+    ...parsed,
+  };
+  bot.updatedAt = now;
+  state.bots[botId] = bot;
+  await writeLocalState(state);
+  return serialiseSettings(bot.settings);
+}
+
+async function listConfigs(botIds = []) {
+  if (isSupabaseEnabled) {
+    if (!botIds.length) {
+      const { data, error } = await supabase.from(SETTINGS_TABLE).select('bot_id');
+      if (error) throw error;
+      botIds = (data || []).map((item) => item.bot_id);
+    }
+
+    const configs = await Promise.all(
+      botIds.map(async (botId) => ({ botId, ...(await getConfig(botId)) }))
+    );
+    return configs;
+  }
+
+  const state = await readLocalState();
+  const ids = botIds.length ? botIds : Object.keys(state.bots);
+  return ids.map((id) => ({ botId: id, ...(state.bots[id] ? {
+    commands: state.bots[id].commands.map(serialiseCommand),
+    quickReplies: state.bots[id].quickReplies.map(serialiseQuickReply),
+    settings: serialiseSettings(state.bots[id].settings),
+  } : { commands: [], quickReplies: [], settings: serialiseSettings({}) }) }));
 }
 
 module.exports = {
   ensureStoreReady,
   getConfig,
-  addCommand,
-  updateCommand,
-  removeCommand,
-  addQuickReply,
-  updateQuickReply,
-  removeQuickReply,
-  setDefaultResponse,
+  saveCommand,
+  deleteCommand,
+  saveQuickReply,
+  deleteQuickReply,
+  updateSettings,
+  listConfigs,
 };

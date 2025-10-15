@@ -1,155 +1,224 @@
-# Topito BN9 - Telegram Bot Dashboard
+# 🤖 Topito BN9 – Telegram Bot + Mini App Control Center
 
-แดชบอร์ดสำหรับจัดการ Telegram Bot, Quick Replies และ Mini App ลิงก์ต่าง ๆ ในที่เดียว พร้อม Backend สำหรับเชื่อมต่อกับ Telegram Webhook และ API ช่วยเหลือต่าง ๆ เพื่อให้นำไป Deploy ได้ทันที
+โซลูชันครบวงจรสำหรับบริหาร Telegram Bot หลายตัวภายใต้บัญชีเดียว พร้อมแดชบอร์ด React + Tailwind ที่เชื่อม Supabase และ OpenAI เพื่อขยายฟีเจอร์ AI, Auto Command และ Mini App ได้ในคลิกเดียว
 
-## โครงสร้างโปรเจกต์
+## 🌟 Highlights
+
+- **Multi-Bot Ready** – เชื่อมหลายบอทด้วยไฟล์ `.env` หรือฐานข้อมูล Supabase และสลับจัดการได้จาก UI เดียว
+- **Supabase Integration** – เก็บคำสั่ง, Quick Reply, Settings และสถานะ Webhook บน Supabase (รองรับ Service Role Key)
+- **OpenAI Automation** – ทดลองสร้างคำตอบอัตโนมัติจาก GPT-5 / GPT-4o / GPT-4-mini / GPT-3.5-turbo พร้อมกำหนด Persona เฉพาะแบรนด์
+- **Mini App Dashboard** – React + Tailwind UI ที่ออกแบบให้รองรับ Manifest, Deep Link และ Telegram Stars ในเฟสถัดไป
+- **Instant Deployment** – Dockerfiles + docker-compose สำหรับ Backend + Frontend และแนะนำ Netlify / Replit / Render
+- **Security by Design** – ไม่มี Token ในซอร์สโค้ด ทุก credentials รับจาก `.env` / Secret Manager เท่านั้น
+
+## 📁 โครงสร้างโปรเจกต์
 
 ```
 TopitoBN9/
-├── backend/            # Node.js (Express) API และ Webhook Handler
-│   ├── data/           # ไฟล์ตั้งค่าที่บันทึกคำสั่งและ quick replies
-│   ├── routes/         # เส้นทาง API สำหรับแดชบอร์ด
-│   ├── services/       # การทำงานหลัก (Telegram, data store)
-│   └── Dockerfile      # Docker image สำหรับ backend
-├── frontend/           # Vite + React Dashboard
+├── backend/                 # Express API, Telegram Webhook, Supabase/OpenAI services
+│   ├── routes/              # REST API สำหรับแดชบอร์ด (multi-bot)
+│   ├── services/            # Telegram, Supabase, OpenAI, storage adapters
+│   ├── data/bot-config.json # Local fallback store (เมื่อไม่ใช้ Supabase)
+│   └── Dockerfile
+├── frontend/                # React + Vite + Tailwind dashboard
 │   ├── src/
-│   ├── Dockerfile      # Docker image สำหรับ frontend + nginx
-│   └── nginx.conf      # Reverse proxy เสิร์ฟไฟล์ static
-├── docker-compose.yml  # Stack พร้อมใช้งาน (backend + frontend)
-├── .env.example        # ตัวอย่างไฟล์ตั้งค่า environment
+│   ├── tailwind.config.js
+│   ├── postcss.config.js
+│   ├── Dockerfile
+│   └── nginx.conf           # Production reverse proxy
+├── docker-compose.yml       # Stack ครบชุดพร้อม volume สำหรับข้อมูลบอท
+├── .env.example             # ตัวอย่าง Environment Variables
 └── README.md
 ```
 
-## การเตรียมค่า Environment
+## 🔐 Environment Variables
 
-คัดลอกไฟล์ `.env.example` ไปเป็น `.env` และกำหนดค่าตามความต้องการ
+คัดลอก `.env.example` แล้วแก้ค่าที่จำเป็น
 
 ```bash
 cp .env.example .env
 ```
 
-ตัวแปรที่สำคัญ
+### Telegram
 
-- `PORT` – พอร์ตที่ backend ใช้งาน (ค่าเริ่มต้น 3000)
-- `TELEGRAM_BOT_TOKEN` – โทเคนบอทจาก BotFather
-- `DOMAIN` – โดเมนหลักที่ใช้รับ Webhook (สามารถปล่อยว่างและกรอกตอนตั้งค่าในหน้าแดชบอร์ดได้)
-- `MINIAPP_ID` / `MINIAPP_URL` – ใช้สร้างปุ่มเปิด Mini App ใน Telegram (กำหนด `MINIAPP_URL` หากมีลิงก์เฉพาะ)
-- `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `OPENAI_API_KEY` – เผื่อเชื่อมต่อบริการเสริม (ไม่บังคับ)
-- `VITE_API_BASE` – (สำหรับ frontend) URL ของ backend เช่น `https://api.your-domain.com`
+| Key | Description |
+| --- | --- |
+| `TELEGRAM_BOT_TOKEN` | โทเคนบอทตัวหลัก (ทางลัดกรณีมีบอทเดียว) |
+| `TELEGRAM_BOT_NAME` / `TELEGRAM_BOT_USERNAME` | ใช้แสดงชื่อบนแดชบอร์ดเมื่อใช้ค่าเริ่มต้น |
+| `TELEGRAM_BOTS` | JSON array สำหรับ multi-bot เช่น `[{"id":"main","name":"Topito","token":"000:ABC"}]` |
+| `TELEGRAM_DEFAULT_BOT_ID` | รหัสบอทค่าเริ่มต้นหากไม่ส่งใน webhook |
 
-> **หมายเหตุ**: ไฟล์ `backend/data/bot-config.json` จะถูกสร้างอัตโนมัติเมื่อรันเซิร์ฟเวอร์ครั้งแรก สามารถแก้ไขได้ผ่านหน้าแดชบอร์ดโดยตรง
+### Mini App & Webhook
 
-## การรันแบบ Local Development
+| Key | Description |
+| --- | --- |
+| `DOMAIN` | โดเมนสำหรับสร้าง URL `https://DOMAIN/webhook/:botId` อัตโนมัติ |
+| `MINIAPP_ID` | ใช้ fallback เมื่อสร้างลิงก์ Mini App อัตโนมัติ |
+| `MINIAPP_URL` | ระบุ URL ของ Mini App โดยตรง (เช่น Deep Link หรือ Stars) |
 
-### 1. Backend (Express)
+### Supabase
+
+| Key | Description |
+| --- | --- |
+| `SUPABASE_URL` | URL โครงการ |
+| `SUPABASE_ANON_KEY` | ใช้กับฝั่ง Frontend |
+| `SUPABASE_SERVICE_ROLE_KEY` | ใช้กับ Backend สำหรับอ่าน/เขียนตารางคำสั่ง (ต้องให้สิทธิ์ Service Role) |
+
+> Backend จะสลับไปใช้ไฟล์ `data/bot-config.json` อัตโนมัติถ้ายังไม่ตั้งค่า Supabase ทำให้ทดลองแบบ offline ได้ทันที
+
+### OpenAI
+
+| Key | Description |
+| --- | --- |
+| `OPENAI_API_KEY` | API key สำหรับ GPT |
+| `OPENAI_DEFAULT_MODEL` | โมเดลเริ่มต้น (เช่น `gpt-4o-mini`) |
+| `OPENAI_SUPPORTED_MODELS` | รายการโมเดลที่ให้ผู้ใช้เลือกในแดชบอร์ด |
+
+### Frontend Runtime (Vite)
+
+| Key | Description |
+| --- | --- |
+| `VITE_API_BASE` | URL ของ Backend เช่น `http://localhost:3000` หรือ `https://api.bn9.club` |
+| `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` | ให้แดชบอร์ดทราบว่าสามารถเชื่อม Supabase ได้หรือไม่ |
+| `VITE_OPENAI_MODEL` | โมเดลที่แสดงใน UI เช่น `gpt-4o-mini` |
+
+## 🧠 Supabase Schema Suggestion
+
+สร้างตารางต่อไปนี้ (หรือปรับตามระบบของคุณ):
+
+```sql
+create table bots (
+  id text primary key,
+  name text,
+  username text,
+  description text,
+  token text,
+  webhook_url text,
+  ai_persona text,
+  ai_enabled boolean default false,
+  miniapp_url text,
+  last_synced_at timestamp,
+  updated_at timestamp default now()
+);
+
+create table bot_commands (
+  id uuid primary key,
+  bot_id text references bots(id) on delete cascade,
+  command text,
+  description text,
+  response text,
+  buttons jsonb default '[]',
+  created_at timestamp default now(),
+  updated_at timestamp default now()
+);
+
+create table bot_quick_replies (
+  id uuid primary key,
+  bot_id text references bots(id) on delete cascade,
+  title text,
+  keyword text,
+  response text,
+  created_at timestamp default now(),
+  updated_at timestamp default now()
+);
+
+create table bot_settings (
+  bot_id text primary key references bots(id) on delete cascade,
+  default_response text,
+  ai_persona text,
+  ai_enabled boolean default false,
+  ai_model text,
+  ai_temperature numeric,
+  auto_keyboard boolean default false,
+  auto_commands boolean default false,
+  miniapp_url text,
+  webhook_url text,
+  updated_at timestamp default now()
+);
+```
+
+> มอบสิทธิ์ Service Role ให้ Backend ใช้ `upsert`/`delete` ได้เต็มที่ ขณะที่ Frontend ใช้ Anon Key เพื่อบอกสถานะการเชื่อมต่อเท่านั้น
+
+## 🚀 การใช้งาน (Local Dev)
+
+### Backend
 
 ```bash
-cd backend
+cd TopitoBN9/backend
 npm install
 npm start
 ```
 
-เซิร์ฟเวอร์จะรันที่ `http://localhost:3000` พร้อม endpoint:
+Endpoints สำคัญ:
 
-- `POST /webhook` – รับข้อความจาก Telegram
-- `GET /health` – เช็คสถานะระบบ
-- `GET /api/bot/*` – API สำหรับแดชบอร์ด (commands, quick replies, webhook, test message)
+- `POST /webhook/:botId` – รับข้อความจาก Telegram สำหรับแต่ละบอท
+- `POST /webhook` – ใช้ค่า `TELEGRAM_DEFAULT_BOT_ID` เมื่อไม่ส่งพารามิเตอร์
+- `GET /health` – รายงานสถานะทั้งหมดของบอท
+- `GET /api/bots` – รายชื่อบอท
+- `GET /api/bots/:botId/config` – คำสั่ง + Quick Replies + Settings
+- `POST /api/bots/:botId/commands` – เพิ่ม/แก้ไข/ลบคำสั่ง
+- `POST /api/bots/:botId/quick-replies` – จัดการ Quick Replies
+- `PUT /api/bots/:botId/settings` – บันทึก Default Response, AI, Mini App URL, Webhook
+- `POST /api/bots/:botId/test-message` – ส่งข้อความทดสอบไปยัง chat id
+- `POST /api/bots/:botId/ai/preview` – ขอคำตอบตัวอย่างจาก OpenAI ตาม Persona
 
-### 2. Frontend (React Dashboard)
-
-เปิดเทอร์มินัลใหม่แล้วรัน:
+### Frontend
 
 ```bash
-cd frontend
+cd TopitoBN9/frontend
 npm install
 npm run dev
 ```
 
-หน้าแดชบอร์ดอยู่ที่ `http://localhost:5173` และมี proxy เชื่อมกับ backend ที่ `/api`, `/health`, `/webhook` ให้อัตโนมัติระหว่างพัฒนา
+แดชบอร์ดจะรันที่ `http://localhost:5173` พร้อม Tailwind UI และเรียก API ผ่าน `VITE_API_BASE`
 
-## ฟีเจอร์หลักของแดชบอร์ด
-
-- **ภาพรวมสถานะบอท**: ตรวจสอบการตั้งค่า Token, จำนวนคำสั่ง, Quick Replies และ Webhook ที่ใช้งานอยู่
-- **จัดการคำสั่ง (Commands)**: เพิ่ม/แก้ไข/ลบคำสั่ง พร้อมตอบกลับข้อความและสร้างปุ่มลัดได้หลายรูปแบบ (command, URL, Web App)
-- **Quick Replies**: ตอบอัตโนมัติเมื่อเจอคีย์เวิร์ดที่กำหนด
-- **Default Response**: กำหนดข้อความ fallback เมื่อไม่พบคำสั่งหรือคีย์เวิร์ดที่ตรงกัน
-- **Webhook Management**: ตั้งค่า/ยกเลิก Webhook ได้จากหน้า UI โดยตรง
-- **Test Message**: ส่งข้อความทดสอบไปยัง chat id ที่ต้องการ เพื่อเช็คการตั้งค่าอย่างรวดเร็ว
-
-## พร้อม Deploy 100%
-
-### Stack สำเร็จรูปด้วย Docker Compose
-
-หากต้องการยกระบบขึ้นทั้ง Frontend + Backend อย่างรวดเร็ว สามารถใช้ Docker Compose ที่เตรียมไว้ได้ทันที:
+## 🐳 Deploy ด้วย Docker Compose
 
 ```bash
 cd TopitoBN9
-cp .env.example .env   # แก้ไขค่าตามต้องการ
-# แก้ไขค่า VITE_API_BASE ใน .env หรือส่งเข้า docker compose ตอนรัน
-VITE_API_BASE=http://localhost:3000 docker compose up --build
+cp .env.example .env  # ปรับค่าให้ครบ โดยเฉพาะ TELEGRAM_BOTS / SUPABASE / OPENAI
+VITE_API_BASE=http://backend:3000 docker compose up --build
 ```
 
-- Backend จะทำงานที่ `http://localhost:3000`
-- Frontend (เสิร์ฟผ่าน nginx) จะอยู่ที่ `http://localhost:8080`
-- สามารถปรับแก้ค่า environment ผ่าน `.env` หรือ override ด้วย `VITE_API_BASE=https://api.your-domain.com docker compose up -d`
+- Backend: `http://localhost:3000`
+- Frontend (ผ่าน nginx): `http://localhost:8080`
+- Volume `bot-data` เก็บไฟล์ `bot-config.json` กรณีไม่ใช้ Supabase
 
-### Deploy Backend ด้วย Docker Image
+### Deploy แยกบริการ
 
-ภายในโฟลเดอร์ `backend` มี `Dockerfile` ที่ใช้สร้าง image พร้อมรันในโหมด Production:
-
+**Backend**
 ```bash
 cd backend
-docker build -t topito-bn9-backend .
-docker run -p 3000:3000 --env-file ../.env topito-bn9-backend
+docker build -t topito-backend .
+docker run -p 3000:3000 --env-file ../.env topito-backend
 ```
 
-Image จะติดตั้ง dependencies (axios, express, cors ฯลฯ) และเปิดพอร์ต 3000 พร้อมใช้งาน
-
-### Deploy Frontend Static ด้วย Docker Image
-
+**Frontend**
 ```bash
 cd frontend
-docker build -t topito-bn9-frontend --build-arg VITE_API_BASE=https://api.your-domain.com .
-docker run -p 8080:80 topito-bn9-frontend
+docker build -t topito-frontend --build-arg VITE_API_BASE=https://api.your-domain.com .
+docker run -p 8080:80 topito-frontend
 ```
 
-ไฟล์ static จะถูกเสิร์ฟผ่าน nginx (configuration อยู่ที่ `frontend/nginx.conf`)
+สำหรับ Netlify/Vercel ให้ตั้ง build command = `npm run build`, publish directory = `dist`
 
-### Deploy แบบ Manual (ไม่ใช้ Docker)
-
-#### Backend
-
-1. เตรียมเซิร์ฟเวอร์ Node.js (เช่น Render, Railway, Fly.io หรือ VPS ส่วนตัว)
-2. อัปโหลดโค้ดในโฟลเดอร์ `backend` พร้อมไฟล์ `.env`
-3. รันคำสั่ง `npm install` และ `npm start`
-4. ตรวจสอบให้พอร์ตที่กำหนดเปิดใช้งาน และตั้งค่า reverse proxy/SSL ให้เรียบร้อย
-
-#### Frontend
-
-- **Netlify / Vercel**: ใช้โฟลเดอร์ `frontend/` กำหนดคำสั่ง build เป็น `npm run build` และ publish directory เป็น `dist`
-- **Static Hosting อื่น ๆ**: รัน `npm run build` แล้วนำไฟล์ใน `frontend/dist` ไปวางที่โฮสต์ปลายทาง
-
-> อย่าลืมตั้งค่า `VITE_API_BASE` ในระบบ Deploy ให้ชี้ไปยัง URL ของ Backend หาก Frontend และ Backend แยกโดเมนกัน
-
-## การตั้งค่า Webhook บน Telegram
-
-1. รัน backend ให้พร้อมรับคำขอจากอินเทอร์เน็ต (มี HTTPS)
-2. เปิดหน้าแดชบอร์ดแล้วใส่ URL ในส่วน Webhook เช่น `https://your-domain.com/webhook`
-3. กด “ตั้งค่า Webhook” ระบบจะเรียก `setWebhook` ที่ Telegram ให้โดยอัตโนมัติ
-4. สามารถกด “โหลดข้อมูลใหม่” เพื่อตรวจสอบสถานะล่าสุด หรือ “ยกเลิก Webhook” เพื่อหยุดรับข้อความ
-
-## การทดสอบด้วย CURL (ตัวอย่าง)
-
-ส่งข้อความจำลองไปยัง webhook:
+## 🧪 การทดสอบ Webhook
 
 ```bash
-curl -X POST https://your-domain.com/webhook \
+curl -X POST https://your-domain.com/webhook/primary \
   -H "Content-Type: application/json" \
   -d '{"message": {"chat": {"id": 12345}, "text": "/start"}}'
 ```
 
-ระบบจะตอบกลับข้อความตามที่ตั้งค่าไว้ในแดชบอร์ด และสามารถตรวจสอบ log ได้จากฝั่งเซิร์ฟเวอร์
+ระบบจะดึงคำสั่งจาก Supabase (หรือไฟล์ local) แล้วตอบกลับผ่าน Telegram API ทันที
 
-## License
+## 🔮 Phase IV – Next Upgrades
 
-โค้ดทั้งหมดอยู่ภายใต้ MIT License สามารถนำไปปรับปรุงเพิ่มเติมเพื่อใช้งานจริงได้ตามต้องการ
+- เชื่อม **AI Generator** แบบเต็มรูปกับ Supabase เพื่อเก็บประวัติคำตอบและสถิติ
+- เพิ่ม **Mini App Manifest** + Deep Link + Telegram Stars Payment
+- เปิดใช้งาน **Auto Keyboard / Auto Command Generation** ผ่าน OpenAI
+- รองรับ **Supabase Auth** สำหรับการจัดการหลายบัญชีในอนาคต
+
+## 📄 License
+
+เผยแพร่ภายใต้ MIT License – สามารถนำไปปรับใช้หรือขยายความสามารถได้อย่างอิสระ

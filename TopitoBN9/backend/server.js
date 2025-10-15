@@ -7,6 +7,7 @@ const morgan = require('morgan');
 
 const { handleTelegramUpdate, getStatus } = require('./services/telegram');
 const { ensureStoreReady } = require('./services/commandStore');
+const { ensureBotId, parseEnvBots } = require('./services/botRegistry');
 const botRouter = require('./routes/bot');
 
 const app = express();
@@ -23,12 +24,24 @@ app.get('/health', async (req, res, next) => {
   }
 });
 
-app.post('/webhook', async (req, res) => {
+app.post('/webhook/:botId', async (req, res) => {
+  const botId = req.params.botId;
   try {
-    await handleTelegramUpdate(req.body);
+    await handleTelegramUpdate(botId, req.body);
     res.sendStatus(200);
   } catch (error) {
-    console.error('Failed to handle Telegram update', error);
+    console.error(`Failed to handle Telegram update for bot ${botId}`, error);
+    res.sendStatus(200);
+  }
+});
+
+app.post('/webhook', async (req, res) => {
+  const botId = ensureBotId(req.body?.botId);
+  try {
+    await handleTelegramUpdate(botId, req.body);
+    res.sendStatus(200);
+  } catch (error) {
+    console.error(`Failed to handle Telegram update for bot ${botId}`, error);
     res.sendStatus(200);
   }
 });
@@ -44,7 +57,22 @@ app.use((err, req, res, next) => {
 
 const port = process.env.PORT || 3000;
 
-ensureStoreReady()
+async function bootstrapStore() {
+  if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    await ensureStoreReady();
+    return;
+  }
+
+  const envBots = parseEnvBots();
+  if (!envBots.length) {
+    await ensureStoreReady('primary');
+    return;
+  }
+
+  await Promise.all(envBots.map((bot) => ensureStoreReady(bot.id)));
+}
+
+bootstrapStore()
   .then(() => {
     app.listen(port, () => {
       console.log(`Server running on port ${port}`);
