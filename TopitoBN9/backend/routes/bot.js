@@ -5,6 +5,10 @@ const commandStore = require('../services/commandStore');
 const telegram = require('../services/telegram');
 const botRegistry = require('../services/botRegistry');
 const { generateStructuredResponse, DEFAULT_MODEL } = require('../services/openai');
+ codex/fix-and-complete-missing-components-for-deployment-ak468j
+const { getSystemStatus } = require('../services/systemStatus');
+=======
+ main
 
 const asyncHandler = (fn) => (req, res, next) =>
   Promise.resolve(fn(req, res, next)).catch(next);
@@ -22,6 +26,20 @@ router.get(
 );
 
 router.get(
+ codex/fix-and-complete-missing-components-for-deployment-ak468j
+  '/system/status',
+  asyncHandler(async (req, res) => {
+    const [systemStatus, telegramStatus] = await Promise.all([
+      getSystemStatus(),
+      telegram.getStatus(),
+    ]);
+    res.json({ ...systemStatus, telegram: telegramStatus });
+  })
+);
+
+router.get(
+=======
+ main
   '/bots/:botId/config',
   asyncHandler(async (req, res) => {
     const botId = getBotId(req);
