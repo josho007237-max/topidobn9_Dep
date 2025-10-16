@@ -168,6 +168,7 @@ function App(): JSX.Element {
     [botsState.data, selectedBotId]
   );
 
+ codex/fix-and-complete-missing-components-for-deployment-b7qfwl
   const telegramBots = statusState.data?.telegram?.bots ?? [];
   const telegramOk =
     statusState.data?.telegram === undefined
@@ -176,6 +177,8 @@ function App(): JSX.Element {
       ? telegramBots.every((botStatus) => botStatus.connected)
       : true;
 
+=======
+ main
   useEffect(() => {
     const load = async () => {
       startBots();
@@ -428,7 +431,11 @@ function App(): JSX.Element {
                   <StatusPill label={`Supabase ${statusState.data.supabase.connected ? 'พร้อมใช้งาน' : 'ไม่เชื่อมต่อ'}`} ok={statusState.data.supabase.connected} />
                   <StatusPill label={`Local Store ${statusState.data.localStore.ready ? 'พร้อมใช้งาน' : 'มีปัญหา'}`} ok={statusState.data.localStore.ready} />
                   <StatusPill label={`OpenAI ${statusState.data.openai.configured ? 'ตั้งค่าแล้ว' : 'ยังไม่ตั้งค่า'}`} ok={statusState.data.openai.configured} />
+ codex/fix-and-complete-missing-components-for-deployment-b7qfwl
                   <StatusPill label={`Telegram ${telegramOk ? 'พร้อม' : 'มีปัญหา'}`} ok={telegramOk} />
+=======
+                  <StatusPill label={`Telegram ${statusState.data.telegram?.reachable !== false ? 'พร้อม' : 'ผิดพลาด'}`} ok={statusState.data.telegram?.reachable !== false} />
+ main
                 </div>
                 <div className="rounded-2xl bg-slate-50 p-4">
                   <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">สภาพแวดล้อม</p>
@@ -449,6 +456,7 @@ function App(): JSX.Element {
                     Local Store: {statusState.data.localStore.error}
                   </p>
                 )}
+ codex/fix-and-complete-missing-components-for-deployment-b7qfwl
                 {telegramBots.length > 0 && (
                   <div className="rounded-2xl bg-slate-50 p-4">
                     <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
@@ -487,6 +495,8 @@ function App(): JSX.Element {
                     )}
                   </div>
                 )}
+=======
+ main
               </div>
             )}
           </SectionCard>

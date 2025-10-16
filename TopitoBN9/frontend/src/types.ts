@@ -81,12 +81,20 @@ export interface SystemStatus {
     webhookDomain: string | null;
     defaultBotId: string | null;
   };
+ codex/fix-and-complete-missing-components-for-deployment-b7qfwl
   telegram?: TelegramSystemStatus;
+=======
+  telegram?: {
+    reachable: boolean;
+    error?: string;
+  };
+ main
 }
 
 export interface ApiError {
   error: string;
 }
+ codex/fix-and-complete-missing-components-for-deployment-b7qfwl
 
 export interface TelegramBotStatus {
   botId: string;
@@ -105,3 +113,5 @@ export interface TelegramBotStatus {
 export interface TelegramSystemStatus {
   bots: TelegramBotStatus[];
 }
+=======
+ main
