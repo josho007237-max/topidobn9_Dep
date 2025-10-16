@@ -3,8 +3,13 @@ node_modules/
 frontend/dist/
 .DS_Store
 npm-debug.log*
+ codex/fix-and-complete-missing-components-for-deployment-b7qfwl
+*.tsbuildinfo
+.env.local
+
  codex/fix-and-complete-missing-components-for-deployment-l6rtm6
 *.tsbuildinfo
 .env.local
-=======
+
+ main
  main

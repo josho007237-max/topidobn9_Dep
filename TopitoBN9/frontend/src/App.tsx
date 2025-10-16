@@ -168,6 +168,17 @@ function App(): JSX.Element {
     [botsState.data, selectedBotId]
   );
 
+ codex/fix-and-complete-missing-components-for-deployment-b7qfwl
+  const telegramBots = statusState.data?.telegram?.bots ?? [];
+  const telegramOk =
+    statusState.data?.telegram === undefined
+      ? false
+      : telegramBots.length > 0
+      ? telegramBots.every((botStatus) => botStatus.connected)
+      : true;
+
+=======
+ main
   useEffect(() => {
     const load = async () => {
       startBots();
@@ -420,7 +431,11 @@ function App(): JSX.Element {
                   <StatusPill label={`Supabase ${statusState.data.supabase.connected ? 'พร้อมใช้งาน' : 'ไม่เชื่อมต่อ'}`} ok={statusState.data.supabase.connected} />
                   <StatusPill label={`Local Store ${statusState.data.localStore.ready ? 'พร้อมใช้งาน' : 'มีปัญหา'}`} ok={statusState.data.localStore.ready} />
                   <StatusPill label={`OpenAI ${statusState.data.openai.configured ? 'ตั้งค่าแล้ว' : 'ยังไม่ตั้งค่า'}`} ok={statusState.data.openai.configured} />
+ codex/fix-and-complete-missing-components-for-deployment-b7qfwl
+                  <StatusPill label={`Telegram ${telegramOk ? 'พร้อม' : 'มีปัญหา'}`} ok={telegramOk} />
+=======
                   <StatusPill label={`Telegram ${statusState.data.telegram?.reachable !== false ? 'พร้อม' : 'ผิดพลาด'}`} ok={statusState.data.telegram?.reachable !== false} />
+ main
                 </div>
                 <div className="rounded-2xl bg-slate-50 p-4">
                   <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">สภาพแวดล้อม</p>
@@ -441,6 +456,47 @@ function App(): JSX.Element {
                     Local Store: {statusState.data.localStore.error}
                   </p>
                 )}
+ codex/fix-and-complete-missing-components-for-deployment-b7qfwl
+                {telegramBots.length > 0 && (
+                  <div className="rounded-2xl bg-slate-50 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+                      Telegram Bots
+                    </p>
+                    <ul className="mt-2 space-y-2 text-xs text-slate-500">
+                      {telegramBots.map((botStatus) => (
+                        <li key={botStatus.botId} className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-semibold text-slate-600">{botStatus.botId}</p>
+                            <p className="text-[11px] text-slate-400">
+                              {botStatus.username ? `@${botStatus.username}` : 'ไม่พบ username'}
+                            </p>
+                            {botStatus.webhookUrl && (
+                              <p className="text-[11px] text-slate-400">Webhook: {botStatus.webhookUrl}</p>
+                            )}
+                          </div>
+                          <span
+                            className={clsx(
+                              'inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium',
+                              botStatus.connected ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'
+                            )}
+                          >
+                            {botStatus.connected ? 'Connected' : 'Disconnected'}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    {telegramBots.some((bot) => bot.error) && (
+                      <p className="mt-3 rounded-xl bg-amber-50 p-3 text-xs text-amber-600">
+                        {telegramBots
+                          .filter((bot) => bot.error)
+                          .map((bot) => `${bot.botId}: ${bot.error}`)
+                          .join(' | ')}
+                      </p>
+                    )}
+                  </div>
+                )}
+=======
+ main
               </div>
             )}
           </SectionCard>
