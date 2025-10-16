@@ -7,9 +7,13 @@ const morgan = require('morgan');
 
 const { handleTelegramUpdate, getStatus } = require('./services/telegram');
 const { ensureStoreReady } = require('./services/commandStore');
+ codex/fix-and-complete-missing-components-for-deployment-l6rtm6
+const { getSystemStatus } = require('./services/systemStatus');
+=======
  codex/fix-and-complete-missing-components-for-deployment-ak468j
 const { getSystemStatus } = require('./services/systemStatus');
 =======
+ main
  main
 const { ensureBotId, parseEnvBots } = require('./services/botRegistry');
 const botRouter = require('./routes/bot');
@@ -21,15 +25,21 @@ app.use(morgan('dev'));
 
 app.get('/health', async (req, res, next) => {
   try {
+ codex/fix-and-complete-missing-components-for-deployment-l6rtm6
+=======
  codex/fix-and-complete-missing-components-for-deployment-ak468j
+ main
     const [telegramStatus, systemStatus] = await Promise.all([
       getStatus(),
       getSystemStatus(),
     ]);
     res.json({ status: 'ok', ...systemStatus, telegram: telegramStatus });
+ codex/fix-and-complete-missing-components-for-deployment-l6rtm6
+=======
 =======
     const status = await getStatus();
     res.json({ status: 'ok', ...status });
+ main
  main
   } catch (error) {
     next(error);
