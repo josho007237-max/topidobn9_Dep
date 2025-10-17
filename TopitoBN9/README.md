@@ -141,15 +141,10 @@ create table bot_settings (
 
 ## 🚀 การใช้งาน (Local Dev)
 
- codex/fix-and-complete-missing-components-for-deployment-b7qfwl
-> ต้องการเวอร์ชันละเอียดสำหรับการเตรียมโปรดักชัน? ดู [Deployment Playbook](./DEPLOYMENT_GUIDE.md) ที่สรุปทุกขั้นตอนแบบ Runbook
-
-=======
  codex/fix-and-complete-missing-components-for-deployment-l6rtm6
 > ต้องการเวอร์ชันละเอียดสำหรับการเตรียมโปรดักชัน? ดู [Deployment Playbook](./DEPLOYMENT_GUIDE.md) ที่สรุปทุกขั้นตอนแบบ Runbook
 
 =======
- main
  main
 ### Backend
 
@@ -163,11 +158,6 @@ Endpoints สำคัญ:
 
 - `POST /webhook/:botId` – รับข้อความจาก Telegram สำหรับแต่ละบอท
 - `POST /webhook` – ใช้ค่า `TELEGRAM_DEFAULT_BOT_ID` เมื่อไม่ส่งพารามิเตอร์
- codex/fix-and-complete-missing-components-for-deployment-b7qfwl
-- `GET /health` – รายงานสถานะระบบรวม (บอท, Supabase, OpenAI, Local store)
-- `GET /api/bots` – รายชื่อบอท
-- `GET /api/system/status` – ตรวจสอบสถานะรวม Supabase/OpenAI/Webhook/Telegram
-=======
  codex/fix-and-complete-missing-components-for-deployment-l6rtm6
 - `GET /health` – รายงานสถานะระบบรวม (บอท, Supabase, OpenAI, Local store)
 - `GET /api/bots` – รายชื่อบอท
@@ -180,7 +170,6 @@ Endpoints สำคัญ:
 =======
 - `GET /health` – รายงานสถานะทั้งหมดของบอท
 - `GET /api/bots` – รายชื่อบอท
- main
  main
  main
 - `GET /api/bots/:botId/config` – คำสั่ง + Quick Replies + Settings
@@ -200,11 +189,6 @@ npm run dev
 
 แดชบอร์ดจะรันที่ `http://localhost:5173` พร้อม Tailwind UI และเรียก API ผ่าน `VITE_API_BASE`
 
- codex/fix-and-complete-missing-components-for-deployment-b7qfwl
-- โค้ด Frontend เป็น React + **TypeScript** (Vite) พร้อม utility `src/api.ts` ที่ช่วยจัดการ fetch/typing
-- UI ถูกออกแบบให้จัดการหลายบอท, คำสั่ง, Quick Reply และการตั้งค่า AI ได้ครบจบในหน้าเดียว
-
-=======
  codex/fix-and-complete-missing-components-for-deployment-l6rtm6
 - โค้ด Frontend เป็น React + **TypeScript** (Vite) พร้อม utility `src/api.ts` ที่ช่วยจัดการ fetch/typing
 - UI ถูกออกแบบให้จัดการหลายบอท, คำสั่ง, Quick Reply และการตั้งค่า AI ได้ครบจบในหน้าเดียว
@@ -215,7 +199,6 @@ npm run dev
 - UI ถูกออกแบบให้จัดการหลายบอท, คำสั่ง, Quick Reply และการตั้งค่า AI ได้ครบจบในหน้าเดียว
 
 =======
- main
  main
  main
 ## 🐳 Deploy ด้วย Docker Compose

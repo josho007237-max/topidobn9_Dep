@@ -81,37 +81,12 @@ export interface SystemStatus {
     webhookDomain: string | null;
     defaultBotId: string | null;
   };
- codex/fix-and-complete-missing-components-for-deployment-b7qfwl
-  telegram?: TelegramSystemStatus;
-=======
   telegram?: {
     reachable: boolean;
     error?: string;
   };
- main
 }
 
 export interface ApiError {
   error: string;
 }
- codex/fix-and-complete-missing-components-for-deployment-b7qfwl
-
-export interface TelegramBotStatus {
-  botId: string;
-  username?: string | null;
-  firstName?: string | null;
-  webhookUrl?: string | null;
-  hasCustomCertificate?: boolean;
-  pendingUpdateCount?: number;
-  lastErrorDate?: number;
-  lastErrorMessage?: string;
-  maxConnections?: number;
-  connected: boolean;
-  error?: string;
-}
-
-export interface TelegramSystemStatus {
-  bots: TelegramBotStatus[];
-}
-=======
- main

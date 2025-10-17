@@ -5,16 +5,12 @@ const commandStore = require('../services/commandStore');
 const telegram = require('../services/telegram');
 const botRegistry = require('../services/botRegistry');
 const { generateStructuredResponse, DEFAULT_MODEL } = require('../services/openai');
- codex/fix-and-complete-missing-components-for-deployment-b7qfwl
-const { getSystemStatus } = require('../services/systemStatus');
-=======
  codex/fix-and-complete-missing-components-for-deployment-l6rtm6
 const { getSystemStatus } = require('../services/systemStatus');
 =======
  codex/fix-and-complete-missing-components-for-deployment-ak468j
 const { getSystemStatus } = require('../services/systemStatus');
 =======
- main
  main
  main
 
@@ -34,12 +30,9 @@ router.get(
 );
 
 router.get(
- codex/fix-and-complete-missing-components-for-deployment-b7qfwl
-=======
  codex/fix-and-complete-missing-components-for-deployment-l6rtm6
 =======
  codex/fix-and-complete-missing-components-for-deployment-ak468j
- main
  main
   '/system/status',
   asyncHandler(async (req, res) => {
@@ -52,12 +45,9 @@ router.get(
 );
 
 router.get(
- codex/fix-and-complete-missing-components-for-deployment-b7qfwl
-=======
  codex/fix-and-complete-missing-components-for-deployment-l6rtm6
 =======
 =======
- main
  main
  main
   '/bots/:botId/config',
