@@ -1,0 +1,10 @@
+node_modules/
+.env
+frontend/dist/
+.DS_Store
+npm-debug.log*
+*.tsbuildinfo
+.env.local
+.firebase/
+firebase-debug.log
+functions/node_modules/
